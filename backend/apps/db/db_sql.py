@@ -167,13 +167,19 @@ def get_table_sql(ds: CoreDatasource, conf: DatasourceConf, db_version: str = ''
     elif equals_ignore_case(ds.type, "es"):
         return "", None
     elif equals_ignore_case(ds.type, "vertica"):
-        # 默认使用 public schema，如果 conf.dbSchema 未设置的话
         schema_to_query = conf.dbSchema if conf.dbSchema else 'public'
         return """
-                    SELECT table_name, comment
-                    FROM v_catalog.tables
-                    WHERE table_schema = %s
-                    ORDER BY table_name
+                    SELECT 
+                        t.table_name, 
+                        COALESCE(c.comment_text, '') AS comment
+                    FROM 
+                        v_catalog.tables t
+                    LEFT JOIN 
+                        v_catalog.comments c ON t.table_id = c.object_id AND c.object_type = 'TABLE'
+                    WHERE 
+                        t.table_schema = %s
+                    ORDER BY 
+                        t.table_name
                     """, schema_to_query
 
 
