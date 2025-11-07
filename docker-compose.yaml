@@ -7,8 +7,8 @@ services:
     networks:
       - sqlbot-network
     ports:
-      - 8000:8000
-      - 8001:8001
+      - 7010:8000
+      - 7011:8001
     environment:
       # Database configuration
       POSTGRES_SERVER: localhost
