@@ -171,7 +171,7 @@ def get_table_sql(ds: CoreDatasource, conf: DatasourceConf, db_version: str = ''
         return """
                     SELECT 
                         t.table_name, 
-                        COALESCE(c.comment_text, '') AS comment
+                        COALESCE(c.comment, '') AS comment
                     FROM 
                         v_catalog.tables t
                     LEFT JOIN 
