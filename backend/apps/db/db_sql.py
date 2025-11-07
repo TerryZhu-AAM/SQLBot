@@ -31,6 +31,10 @@ def get_version_sql(ds: CoreDatasource, conf: DatasourceConf):
                 """
     elif equals_ignore_case(ds.type, "redshift"):
         return ''
+    elif equals_ignore_case(ds.type, "vertica"):
+        return """
+                SELECT version()
+                """
 
 
 def get_table_sql(ds: CoreDatasource, conf: DatasourceConf, db_version: str = ''):
@@ -162,6 +166,15 @@ def get_table_sql(ds: CoreDatasource, conf: DatasourceConf, db_version: str = ''
               """, conf.dbSchema
     elif equals_ignore_case(ds.type, "es"):
         return "", None
+    elif equals_ignore_case(ds.type, "vertica"):
+        # 默认使用 public schema，如果 conf.dbSchema 未设置的话
+        schema_to_query = conf.dbSchema if conf.dbSchema else 'public'
+        return """
+                    SELECT table_name, comment
+                    FROM v_catalog.tables
+                    WHERE table_schema = %s
+                    ORDER BY table_name
+                    """, schema_to_query
 
 
 def get_field_sql(ds: CoreDatasource, conf: DatasourceConf, table_name: str = None):
@@ -313,3 +326,12 @@ def get_field_sql(ds: CoreDatasource, conf: DatasourceConf, table_name: str = No
         return sql1 + sql2, conf.dbSchema, table_name
     elif equals_ignore_case(ds.type, "es"):
         return "", None, None
+    elif equals_ignore_case(ds.type, "vertica"):
+        schema_to_query = conf.dbSchema if conf.dbSchema else 'public'
+        sql1 = """
+                   SELECT column_name, data_type, comment
+                   FROM v_catalog.columns
+                   WHERE table_schema = %s
+                   """
+        sql2 = " AND table_name = %s" if table_name is not None and table_name != "" else ""
+        return sql1 + sql2, schema_to_query, table_name

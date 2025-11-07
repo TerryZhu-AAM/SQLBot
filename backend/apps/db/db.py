@@ -9,6 +9,7 @@ import oracledb
 import psycopg2
 import pymssql
 
+import vertica_python
 from apps.db.db_sql import get_table_sql, get_field_sql, get_version_sql
 from common.error import ParseSQLResultError
 
@@ -226,6 +227,29 @@ def check_connection(trans: Optional[Trans], ds: CoreDatasource | AssistantOutDs
                 else:
                     SQLBotLogUtil.info("failed")
                     return False
+            elif equals_ignore_case(ds.type, 'vertica'):
+                try:
+                    with vertica_python.connect(
+                            host=conf.host,
+                            port=conf.port,
+                            user=conf.username,
+                            password=conf.password,
+                            database=conf.database,
+                            # vertica-python 使用 connection_timeout 和 read_timeout
+                            connection_timeout=conf.timeout,
+                            read_timeout=conf.timeout,
+                            **extra_config_dict
+                    ) as conn:
+                        with conn.cursor() as cursor:
+                            cursor.execute('SELECT 1')
+                            cursor.fetchone()  # 执行 fetch 以确保命令到达服务器并返回
+                    SQLBotLogUtil.info("Vertica connection success")
+                    return True
+                except Exception as e:
+                    SQLBotLogUtil.error(f"Vertica Datasource {ds.id} connection failed: {e}")
+                    if is_raise:
+                        raise HTTPException(status_code=500, detail=trans('i18n_ds_invalid') + f': {e.args}')
+                    return False
     else:
         conn = get_ds_engine(ds)
         try:
@@ -282,6 +306,14 @@ def get_version(ds: CoreDatasource | AssistantOutDsSchema):
                     version = res[0][0]
             elif equals_ignore_case(ds.type, 'redshift', 'es'):
                 version = ''
+            elif equals_ignore_case(ds.type, 'vertica'):
+                with vertica_python.connect(host=conf.host, port=conf.port, user=conf.username,
+                                            password=conf.password, database=conf.database,
+                                            connection_timeout=conf.timeout, read_timeout=conf.timeout,
+                                            **extra_config_dict) as conn:
+                    with conn.cursor() as cursor:
+                        cursor.execute("SELECT version()")
+                        version = cursor.fetchone()[0]
     except Exception as e:
         print(e)
         version = ''
@@ -330,6 +362,16 @@ def get_schema(ds: CoreDatasource):
                 res = cursor.fetchall()
                 res_list = [item[0] for item in res]
                 return res_list
+        elif equals_ignore_case(ds.type, 'vertica'):
+            with vertica_python.connect(host=conf.host, port=conf.port, user=conf.username,
+                                        password=conf.password, database=conf.database,
+                                        connection_timeout=conf.timeout, read_timeout=conf.timeout,
+                                        **extra_config_dict) as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute("SELECT schema_name FROM v_catalog.schemata ORDER BY schema_name")
+                    res = cursor.fetchall()
+                    res_list = [item[0] for item in res]
+                    return res_list
 
 
 def get_tables(ds: CoreDatasource):
@@ -381,6 +423,17 @@ def get_tables(ds: CoreDatasource):
             res = get_es_index(conf)
             res_list = [TableSchema(*item) for item in res]
             return res_list
+        elif equals_ignore_case(ds.type, 'vertica'):
+            sql, sql_param = get_table_sql(ds, conf, get_version(ds))
+            with vertica_python.connect(host=conf.host, port=conf.port, user=conf.username,
+                                        password=conf.password, database=conf.database,
+                                        connection_timeout=conf.timeout, read_timeout=conf.timeout,
+                                        **extra_config_dict) as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute(sql, (sql_param,))
+                    res = cursor.fetchall()
+                    res_list = [TableSchema(*item) for item in res]
+                    return res_list
 
 
 def get_fields(ds: CoreDatasource, table_name: str = None):
@@ -432,6 +485,17 @@ def get_fields(ds: CoreDatasource, table_name: str = None):
             res = get_es_fields(conf, table_name)
             res_list = [ColumnSchema(*item) for item in res]
             return res_list
+        elif equals_ignore_case(ds.type, 'vertica'):
+            sql, p1, p2 = get_field_sql(ds, conf, table_name)
+            with vertica_python.connect(host=conf.host, port=conf.port, user=conf.username,
+                                        password=conf.password, database=conf.database,
+                                        connection_timeout=conf.timeout, read_timeout=conf.timeout,
+                                        **extra_config_dict) as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute(sql, (p1, p2))
+                    res = cursor.fetchall()
+                    res_list = [ColumnSchema(*item) for item in res]
+                    return res_list
 
 
 def exec_sql(ds: CoreDatasource | AssistantOutDsSchema, sql: str, origin_column=False):
@@ -548,3 +612,24 @@ def exec_sql(ds: CoreDatasource | AssistantOutDsSchema, sql: str, origin_column=
                         "sql": bytes.decode(base64.b64encode(bytes(sql, 'utf-8')))}
             except Exception as ex:
                 raise Exception(str(ex))
+        elif equals_ignore_case(ds.type, 'vertica'):
+            try:
+                with vertica_python.connect(host=conf.host, port=conf.port, user=conf.username,
+                                            password=conf.password, database=conf.database,
+                                            connection_timeout=conf.timeout, read_timeout=conf.timeout,
+                                            **extra_config_dict) as conn:
+                    with conn.cursor() as cursor:
+                        cursor.execute(sql)
+                        res = cursor.fetchall()
+                        columns = [field[0] for field in cursor.description] if origin_column else [field[0].lower() for
+                                                                                                    field in
+                                                                                                    cursor.description]
+                        result_list = [
+                            {str(columns[i]): float(value) if isinstance(value, Decimal) else value for i, value in
+                             enumerate(tuple_item)}
+                            for tuple_item in res
+                        ]
+                        return {"fields": columns, "data": result_list,
+                                "sql": bytes.decode(base64.b64encode(bytes(sql, 'utf-8')))}
+            except Exception as ex:
+                raise ParseSQLResultError(str(ex))

@@ -27,6 +27,7 @@ class DB(Enum):
     oracle = ('oracle', 'Oracle', '"', '"', ConnectType.sqlalchemy, 'Oracle')
     pg = ('pg', 'PostgreSQL', '"', '"', ConnectType.sqlalchemy, 'PostgreSQL')
     starrocks = ('starrocks', 'StarRocks', '`', '`', ConnectType.py_driver, 'StarRocks')
+    vertica = ('vertica', 'Vertica', '"', '"', ConnectType.py_driver, 'Vertica')
 
     def __init__(self, type, db_name, prefix, suffix, connect_type: ConnectType, template_name: str):
         self.type = type
