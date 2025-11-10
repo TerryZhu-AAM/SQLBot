@@ -80,6 +80,11 @@ def get_uri_from_config(type: str, conf: DatasourceConf) -> str:
             db_url = f"clickhouse+http://{urllib.parse.quote(conf.username)}:{urllib.parse.quote(conf.password)}@{conf.host}:{conf.port}/{conf.database}?{conf.extraJdbc}"
         else:
             db_url = f"clickhouse+http://{urllib.parse.quote(conf.username)}:{urllib.parse.quote(conf.password)}@{conf.host}:{conf.port}/{conf.database}"
+    elif equals_ignore_case(type, "vertica"):
+        if conf.extraJdbc is not None and conf.extraJdbc != '':
+            db_url = f"vertica+vertica_python://{urllib.parse.quote(conf.username)}:{urllib.parse.quote(conf.password)}@{conf.host}:{conf.port}/{conf.database}?{conf.extraJdbc}"
+        else:
+            db_url = f"vertica+vertica_python://{urllib.parse.quote(conf.username)}:{urllib.parse.quote(conf.password)}@{conf.host}:{conf.port}/{conf.database}"
     else:
         raise 'The datasource type not support.'
     return db_url
@@ -136,6 +141,10 @@ def get_engine(ds: CoreDatasource, timeout: int = 0) -> Engine:
                                pool_timeout=conf.timeout)
     elif equals_ignore_case(ds.type, 'oracle'):
         engine = create_engine(get_uri(ds),
+                               pool_timeout=conf.timeout)
+    elif equals_ignore_case(ds.type, 'vertica'):
+        engine = create_engine(get_uri(ds),
+                               connect_args={"connection_timeout": conf.timeout, "read_timeout": conf.timeout},
                                pool_timeout=conf.timeout)
     else:  # mysql, ck
         engine = create_engine(get_uri(ds), connect_args={"connect_timeout": conf.timeout}, pool_timeout=conf.timeout)
@@ -312,7 +321,7 @@ def get_version(ds: CoreDatasource | AssistantOutDsSchema):
                                             connection_timeout=conf.timeout, read_timeout=conf.timeout,
                                             **extra_config_dict) as conn:
                     with conn.cursor() as cursor:
-                        cursor.execute("SELECT version()")
+                        cursor.execute(sql)
                         version = cursor.fetchone()[0]
     except Exception as e:
         print(e)
@@ -424,7 +433,6 @@ def get_tables(ds: CoreDatasource):
             res_list = [TableSchema(*item) for item in res]
             return res_list
         elif equals_ignore_case(ds.type, 'vertica'):
-            sql, sql_param = get_table_sql(ds, conf, get_version(ds))
             with vertica_python.connect(host=conf.host, port=conf.port, user=conf.username,
                                         password=conf.password, database=conf.database,
                                         connection_timeout=conf.timeout, read_timeout=conf.timeout,
