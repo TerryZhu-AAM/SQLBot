@@ -33,10 +33,10 @@ services:
       - ./data/sqlbot/file:/opt/sqlbot/data/file
       - ./data/sqlbot/images:/opt/sqlbot/images
       - ./data/sqlbot/logs:/opt/sqlbot/app/logs
-      - ./data/sqlbot/templates:/opt/sqlbot/app/templates
       - ./data/postgresql:/var/lib/postgresql/data
       - ./backend/apps:/opt/sqlbot/app/apps
       - ./backend/common:/opt/sqlbot/app/common
+      - ./backend/templates:/opt/sqlbot/app/templates
 
 networks:
   sqlbot-network:
