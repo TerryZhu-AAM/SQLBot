@@ -244,7 +244,6 @@ def check_connection(trans: Optional[Trans], ds: CoreDatasource | AssistantOutDs
                             user=conf.username,
                             password=conf.password,
                             database=conf.database,
-                            # vertica-python 使用 connection_timeout 和 read_timeout
                             connection_timeout=conf.timeout,
                             read_timeout=conf.timeout,
                             **extra_config_dict

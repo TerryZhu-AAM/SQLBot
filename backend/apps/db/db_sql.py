@@ -169,18 +169,19 @@ def get_table_sql(ds: CoreDatasource, conf: DatasourceConf, db_version: str = ''
     elif equals_ignore_case(ds.type, "vertica"):
         schema_to_query = conf.dbSchema if conf.dbSchema else 'public'
         return """
-                    SELECT 
-                        t.table_name, 
-                        COALESCE(c.comment, '') AS comment
-                    FROM 
-                        v_catalog.tables t
-                    LEFT JOIN 
-                        v_catalog.comments c ON t.table_id = c.object_id AND c.object_type = 'TABLE'
-                    WHERE 
-                        t.table_schema = %s
-                    ORDER BY 
-                        t.table_name
-                    """, schema_to_query
+                SELECT 
+                    t.table_name,
+                    COALESCE(c.comment, '') AS TABLE_COMMENT
+                FROM (
+                    SELECT table_name, table_id, table_schema FROM v_catalog.tables
+                    UNION ALL
+                    SELECT table_name, table_id, table_schema FROM v_catalog.views
+                ) t
+                LEFT JOIN v_catalog.comments c 
+                    ON t.table_id = c.object_id AND c.object_type = 'TABLE'
+                WHERE t.table_schema = %s
+                ORDER BY t.table_name
+                """, schema_to_query
 
 
 def get_field_sql(ds: CoreDatasource, conf: DatasourceConf, table_name: str = None):
