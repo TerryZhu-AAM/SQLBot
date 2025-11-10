@@ -336,13 +336,19 @@ def get_field_sql(ds: CoreDatasource, conf: DatasourceConf, table_name: str = No
         schema_to_query = conf.dbSchema if conf.dbSchema else 'public'
         sql1 = """
                    SELECT 
-                       column_name, 
-                       data_type, 
-                       '' AS comment  
+                       col.column_name, 
+                       col.data_type, 
+                       COALESCE(
+                           (SELECT comment 
+                            FROM v_catalog.comments 
+                            WHERE object_id = col.column_id 
+                            AND object_type = 'COLUMN'),
+                           ''
+                       ) AS comment
                    FROM 
-                       v_catalog.columns
+                       v_catalog.columns col
                    WHERE 
-                       table_schema = %s
+                       col.table_schema = %s
                    """
-        sql2 = " AND table_name = %s" if table_name is not None and table_name != "" else ""
+        sql2 = " AND col.table_name = %s" if table_name is not None and table_name != "" else ""
         return sql1 + sql2, schema_to_query, table_name
