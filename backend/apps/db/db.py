@@ -626,7 +626,6 @@ def exec_sql(ds: CoreDatasource | AssistantOutDsSchema, sql: str, origin_column=
                                             connection_timeout=conf.timeout, read_timeout=conf.timeout,
                                             **extra_config_dict) as conn:
                     with conn.cursor() as cursor:
-                        raise Exception(str(sql))
                         cursor.execute(sql)
                         res = cursor.fetchall()
                         columns = [field[0] for field in cursor.description] if origin_column else [field[0].lower() for
