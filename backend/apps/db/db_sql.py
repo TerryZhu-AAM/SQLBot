@@ -336,18 +336,20 @@ def get_field_sql(ds: CoreDatasource, conf: DatasourceConf, table_name: str = No
     elif equals_ignore_case(ds.type, "vertica"):
         schema_to_query = conf.dbSchema if conf.dbSchema else 'public'
         sql1 = """
-                SELECT 
-                    col.column_name, 
-                    col.data_type, 
-                    COALESCE(com.comment, '') AS COLUMN_COMMENT
-                FROM 
-                    v_catalog.columns col
-                LEFT JOIN 
-                    v_catalog.comments com 
-                    ON com.object_id = col.column_id AND com.object_type = 'COLUMN'
-                WHERE 
-                    col.table_schema = %s
-                """
+                   SELECT 
+                       col.column_name AS COLUMN_NAME,
+                       col.data_type AS DATA_TYPE,
+                       COALESCE(com.comment, '') AS COLUMN_COMMENT
+                   FROM 
+                       v_catalog.columns col
+                   LEFT JOIN 
+                       v_catalog.comments com 
+                       ON com.object_type = 'COLUMN'
+                       AND com.object_id = col.table_id
+                       AND com.child_object = col.column_name
+                   WHERE 
+                       col.table_schema = %s
+                   """
         sql2 = " AND col.table_name = %s" if table_name else ""
-        sql3 = " ORDER BY col.ordinal_position"
+        sql3 = " ORDER BY col.column_name"
         return sql1 + sql2 + sql3, schema_to_query, table_name
