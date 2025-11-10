@@ -335,16 +335,14 @@ def get_field_sql(ds: CoreDatasource, conf: DatasourceConf, table_name: str = No
     elif equals_ignore_case(ds.type, "vertica"):
         schema_to_query = conf.dbSchema if conf.dbSchema else 'public'
         sql1 = """
-                       SELECT 
-                           col.column_name, 
-                           col.data_type, 
-                           COALESCE(c.comment, '') AS comment
-                       FROM 
-                           v_catalog.columns col
-                       LEFT JOIN 
-                           v_catalog.comments c ON col.column_id = c.object_id AND c.object_type = 'COLUMN'
-                       WHERE 
-                           col.table_schema = %s
-                       """
-        sql2 = " AND col.table_name = %s" if table_name is not None and table_name != "" else ""
+                   SELECT 
+                       column_name, 
+                       data_type, 
+                       '' AS comment  
+                   FROM 
+                       v_catalog.columns
+                   WHERE 
+                       table_schema = %s
+                   """
+        sql2 = " AND table_name = %s" if table_name is not None and table_name != "" else ""
         return sql1 + sql2, schema_to_query, table_name
