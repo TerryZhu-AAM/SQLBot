@@ -338,15 +338,13 @@ def get_field_sql(ds: CoreDatasource, conf: DatasourceConf, table_name: str = No
                    SELECT 
                        col.column_name, 
                        col.data_type, 
-                       COALESCE(
-                           (SELECT comment 
-                            FROM v_catalog.comments 
-                            WHERE object_id = col.column_id 
-                            AND object_type = 'COLUMN'),
-                           ''
-                       ) AS comment
+                       COALESCE(com.comment, '') AS comment
                    FROM 
                        v_catalog.columns col
+                   LEFT JOIN 
+                       v_catalog.comments com 
+                       ON com.object_type = 'COLUMN'
+                       AND com.object_id::VARCHAR = col.column_id::VARCHAR
                    WHERE 
                        col.table_schema = %s
                    """
